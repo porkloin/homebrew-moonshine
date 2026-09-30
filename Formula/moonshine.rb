@@ -52,7 +52,10 @@ class Moonshine < Formula
 
     # Root-level host setup (udev rules, systemd unit, Vulkan layer)
     # see scripts/moonshine-setup-system.sh for why it's a separate file.
-    bin.install "#{__dir__}/../scripts/moonshine-setup-system.sh" => "moonshine-setup-system"
+    # Copy it out of the tap first: install renames its source, and the tap
+    # checkout isn't writable from the build.
+    cp "#{__dir__}/../scripts/moonshine-setup-system.sh", buildpath/"moonshine-setup-system"
+    bin.install "moonshine-setup-system"
     (bin/"moonshine-setup-system").chmod 0755
   end
 
