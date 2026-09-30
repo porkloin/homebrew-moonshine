@@ -1,10 +1,15 @@
 class Moonshine < Formula
   desc "Game streaming server using the NVIDIA GameStream / Moonlight protocol"
   homepage "https://github.com/hgaiser/moonshine"
-  url "https://github.com/hgaiser/moonshine/releases/download/v0.13.5/moonshine-v0.13.5-linux-amd64.tar.zst"
-  sha256 "a0be9f33e137922bc40c0346ec095cafd06997ebe115d44baf311572281bd89d"
+  url "https://github.com/hgaiser/moonshine/releases/download/v0.16.1/moonshine-v0.16.1-linux-amd64.tar.zst"
+  sha256 "14051d0f080e1d77ed6fb9e289bcd1fc0132e41f50f2a35f488fa8592ea0b9c7"
   license "BSD-2-Clause"
-  version "0.13.5"
+
+  # Bumped automatically by .github/workflows/bump.yml (scripts/bump-formula.sh).
+  livecheck do
+    url :stable
+    strategy :github_latest
+  end
 
   depends_on :linux
   depends_on arch: :x86_64
@@ -35,10 +40,15 @@ class Moonshine < Formula
     inreplace "share/moonshine/start-moonshine.sh", "/usr/bin/moonshine", opt_bin/"moonshine"
     bin.install "share/moonshine/start-moonshine.sh"
 
+    # moonshine@.service runs with SupplementaryGroups=moonshine, so the group from
+    # moonshine-sysusers.conf must exist or systemd refuses to start the unit. The polkit
+    # rule lets that group hold the sleep inhibitor (`inhibit_sleep`, on by default).
     (share/"moonshine").install "share/moonshine/60-moonshine.rules",
                                  "share/moonshine/moonshine-modules.conf",
                                  "share/moonshine/moonshine@.service",
-                                 "share/moonshine/VkLayer_moonshine_wsi.json"
+                                 "share/moonshine/VkLayer_moonshine_wsi.json",
+                                 "share/moonshine/moonshine-sysusers.conf",
+                                 "share/moonshine/50-moonshine-inhibit-sleep.rules"
 
     # Root-level host setup (udev rules, systemd unit, Vulkan layer)
     # see scripts/moonshine-setup-system.sh for why it's a separate file.
@@ -50,7 +60,8 @@ class Moonshine < Formula
     <<~EOS
       moonshine needs one-time, root-level host setup: udev rules for
       /dev/uinput and /dev/uhid (gamepad emulation), the kernel modules
-      those need, the moonshine@.service systemd unit, and the Vulkan WSI
+      those need, the moonshine@.service systemd unit, the `moonshine`
+      group and polkit rule for the sleep inhibitor, and the Vulkan WSI
       layer manifest (games won't route frames to moonshine without it).
 
           sudo #{opt_bin}/moonshine-setup-system

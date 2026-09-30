@@ -20,6 +20,10 @@ UNIT_SRC="${SHARE_DIR}/moonshine@.service"
 UNIT_DEST="/etc/systemd/system/moonshine@.service"
 LAYER_SRC="${SHARE_DIR}/VkLayer_moonshine_wsi.json"
 LAYER_DEST="/etc/vulkan/implicit_layer.d/VkLayer_moonshine_wsi.json"
+SYSUSERS_SRC="${SHARE_DIR}/moonshine-sysusers.conf"
+SYSUSERS_DEST="/etc/sysusers.d/moonshine.conf"
+POLKIT_SRC="${SHARE_DIR}/50-moonshine-inhibit-sleep.rules"
+POLKIT_DEST="/etc/polkit-1/rules.d/50-moonshine-inhibit-sleep.rules"
 
 if [[ $EUID -ne 0 ]]; then
   echo "must run as root: sudo $0 $*" >&2
@@ -27,7 +31,7 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Fail if not running systemd
-for tool in systemctl udevadm loginctl modprobe; do
+for tool in systemctl systemd-sysusers udevadm loginctl modprobe; do
   command -v "$tool" >/dev/null || {
     echo "error: $tool not found — this host doesn't look like it's running systemd." >&2
     echo "moonshine's service model (moonshine@.service, udev rules, modules-load.d) requires it." >&2
@@ -56,6 +60,12 @@ install)
   install -Dm 0644 "$MODULES_SRC" "$MODULES_DEST"
   install -Dm 0644 "$UNIT_SRC" "$UNIT_DEST"
   install -Dm 0644 "$LAYER_SRC" "$LAYER_DEST"
+  install -Dm 0644 "$SYSUSERS_SRC" "$SYSUSERS_DEST"
+  install -Dm 0644 "$POLKIT_SRC" "$POLKIT_DEST"
+
+  # The unit runs with SupplementaryGroups=moonshine; the group must exist first.
+  systemd-sysusers "$SYSUSERS_DEST"
+  systemctl reload-or-restart polkit.service 2>/dev/null || true
 
   udevadm control --reload-rules
   udevadm trigger
@@ -78,7 +88,8 @@ uninstall)
     systemctl disable --now "moonshine@${target_user}.service" 2>/dev/null || true
     loginctl disable-linger "$target_user" 2>/dev/null || true
   fi
-  rm -f "$RULES_DEST" "$MODULES_DEST" "$UNIT_DEST" "$LAYER_DEST"
+  rm -f "$RULES_DEST" "$MODULES_DEST" "$UNIT_DEST" "$LAYER_DEST" "$SYSUSERS_DEST" "$POLKIT_DEST"
+  # The moonshine group itself is left in place, like other sysusers-created groups.
   udevadm control --reload-rules
   udevadm trigger
   systemctl daemon-reload

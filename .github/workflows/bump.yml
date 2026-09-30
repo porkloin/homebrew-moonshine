@@ -1,0 +1,56 @@
+name: Bump moonshine
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to bump to (default: latest)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update formula to the new release
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: scripts/bump-formula.sh $TAG
+
+      # Only libgbm has to come from the host (see the formula's depends_on
+      # note); the rest is pulled from homebrew-core.
+      - name: Install runtime libs from the host
+        if: steps.bump.outputs.changed == 'true'
+        run: sudo apt-get update && sudo apt-get install -y libgbm1 zstd
+
+      # Taps this checkout (working tree included), so the bumped formula is
+      # what gets installed.
+      - uses: Homebrew/actions/setup-homebrew@master
+        if: steps.bump.outputs.changed == 'true'
+
+      - name: Install and test
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          brew install --formula porkloin/moonshine/moonshine
+          brew test porkloin/moonshine/moonshine
+          brew audit --formula porkloin/moonshine/moonshine || true
+
+      - name: Commit
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "moonshine ${{ steps.bump.outputs.version }}"
+          git push
