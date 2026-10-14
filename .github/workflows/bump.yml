@@ -27,7 +27,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
-        run: scripts/bump-formula.sh $TAG
+        run: scripts/bump-formula.sh ${TAG:+"$TAG"}
 
       # Only libgbm has to come from the host (see the formula's depends_on
       # note); the rest is pulled from homebrew-core.
@@ -37,7 +37,7 @@ jobs:
 
       # Taps this checkout (working tree included), so the bumped formula is
       # what gets installed.
-      - uses: Homebrew/actions/setup-homebrew@master
+      - uses: Homebrew/actions/setup-homebrew@main
         if: steps.bump.outputs.changed == 'true'
 
       - name: Install and test
@@ -45,7 +45,8 @@ jobs:
         run: |
           brew install --formula porkloin/moonshine/moonshine
           brew test porkloin/moonshine/moonshine
-          brew audit --formula porkloin/moonshine/moonshine || true
+          brew style porkloin/moonshine
+          brew audit --formula --strict --online porkloin/moonshine/moonshine
 
       - name: Commit
         if: steps.bump.outputs.changed == 'true'

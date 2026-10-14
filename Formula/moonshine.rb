@@ -11,16 +11,16 @@ class Moonshine < Formula
     strategy :github_latest
   end
 
-  depends_on :linux
+  depends_on "patchelf" => :build
   depends_on arch: :x86_64
 
   # No mesa/libdrm: libgbm and the DRI/KMS drivers have to match the
   # running kernel GPU driver, so they must come from the host, not brew.
   depends_on "libevdev"
   depends_on "libxkbcommon"
+  depends_on :linux
   depends_on "opus"
   depends_on "wayland"
-  depends_on "patchelf" => :build
 
   def install
     bin.install "bin/moonshine"
@@ -28,9 +28,10 @@ class Moonshine < Formula
 
     # Prebuilt binary, so it has no RPATH into the Cellar. --add-rpath
     # (not --set-rpath) so we don't clobber one upstream adds later.
-    moonshine_rpath = [Formula["opus"].opt_lib, Formula["libevdev"].opt_lib, Formula["libxkbcommon"].opt_lib].join(":")
+    moonshine_rpath = %w[opus libevdev libxkbcommon].map { |f| formula_opt_lib(f) }.join(":")
     system "patchelf", "--add-rpath", moonshine_rpath, bin/"moonshine"
-    system "patchelf", "--add-rpath", Formula["wayland"].opt_lib.to_s, lib/"moonshine/vulkan-layers/libmoonshine_wsi.so"
+    wsi_layer = lib/"moonshine/vulkan-layers/libmoonshine_wsi.so"
+    system "patchelf", "--add-rpath", formula_opt_lib("wayland").to_s, wsi_layer
 
     inreplace "share/moonshine/moonshine@.service", "/usr/bin/start-moonshine.sh", opt_bin/"start-moonshine.sh"
     inreplace "share/moonshine/VkLayer_moonshine_wsi.json",
@@ -43,12 +44,12 @@ class Moonshine < Formula
     # moonshine@.service runs with SupplementaryGroups=moonshine, so the group from
     # moonshine-sysusers.conf must exist or systemd refuses to start the unit. The polkit
     # rule lets that group hold the sleep inhibitor (`inhibit_sleep`, on by default).
-    (share/"moonshine").install "share/moonshine/60-moonshine.rules",
-                                 "share/moonshine/moonshine-modules.conf",
-                                 "share/moonshine/moonshine@.service",
-                                 "share/moonshine/VkLayer_moonshine_wsi.json",
-                                 "share/moonshine/moonshine-sysusers.conf",
-                                 "share/moonshine/50-moonshine-inhibit-sleep.rules"
+    pkgshare.install "share/moonshine/60-moonshine.rules",
+                     "share/moonshine/moonshine-modules.conf",
+                     "share/moonshine/moonshine@.service",
+                     "share/moonshine/VkLayer_moonshine_wsi.json",
+                     "share/moonshine/moonshine-sysusers.conf",
+                     "share/moonshine/50-moonshine-inhibit-sleep.rules"
 
     # Root-level host setup (udev rules, systemd unit, Vulkan layer)
     # see scripts/moonshine-setup-system.sh for why it's a separate file.
@@ -73,7 +74,9 @@ class Moonshine < Formula
       user lingering, so it survives reboots without a graphical login. Pass
       --no-enable to only install everything above without starting it.
       Re-run after `brew upgrade moonshine` if the bundled unit/rules/layer
-      change. To undo everything: `sudo #{opt_bin}/moonshine-setup-system uninstall`.
+      change, and after every upgrade on SELinux hosts (it relabels the new
+      version's bin/ so systemd can execute it). To undo everything:
+      `sudo #{opt_bin}/moonshine-setup-system uninstall`.
 
       If virtual input devices don't appear, your user may also need the
       `input` group (most desktops already grant it via the udev rule above):
