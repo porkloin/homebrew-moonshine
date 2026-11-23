@@ -1,13 +1,14 @@
 LICENSE
 README.md
 bin/moonshine
+bin/moonshine-gamescope
 bin/moonshine-install.sh
-lib/moonshine/vulkan-layers/libmoonshine_wsi.so
+lib/ferriscope/libferriscope_wsi.so
 share/moonshine/50-moonshine-inhibit-sleep.rules
 share/moonshine/60-moonshine.rules
-share/moonshine/VkLayer_moonshine_wsi.json
 share/moonshine/moonshine-atomic-update.conf
 share/moonshine/moonshine-modules.conf
 share/moonshine/moonshine-sysusers.conf
 share/moonshine/moonshine@.service
 share/moonshine/start-moonshine.sh
+share/vulkan/implicit_layer.d/VkLayer_FERRISCOPE_wsi.x86_64.json
