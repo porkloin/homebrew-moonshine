@@ -18,8 +18,10 @@ MODULES_SRC="${SHARE_DIR}/moonshine-modules.conf"
 MODULES_DEST="/etc/modules-load.d/moonshine.conf"
 UNIT_SRC="${SHARE_DIR}/moonshine@.service"
 UNIT_DEST="/etc/systemd/system/moonshine@.service"
-LAYER_SRC="${SHARE_DIR}/VkLayer_moonshine_wsi.json"
-LAYER_DEST="/etc/vulkan/implicit_layer.d/VkLayer_moonshine_wsi.json"
+LAYER_SRC="${SHARE_DIR}/VkLayer_FERRISCOPE_wsi.x86_64.json"
+LAYER_DEST="/etc/vulkan/implicit_layer.d/VkLayer_FERRISCOPE_wsi.x86_64.json"
+# Installed by moonshine < 0.17, which shipped its own layer; ferriscope's replaces it.
+OLD_LAYER_DEST="/etc/vulkan/implicit_layer.d/VkLayer_moonshine_wsi.json"
 SYSUSERS_SRC="${SHARE_DIR}/moonshine-sysusers.conf"
 SYSUSERS_DEST="/etc/sysusers.d/moonshine.conf"
 POLKIT_SRC="${SHARE_DIR}/50-moonshine-inhibit-sleep.rules"
@@ -95,6 +97,7 @@ case "${cmd}" in
     install -Dm 0644 "${MODULES_SRC}" "${MODULES_DEST}"
     install -Dm 0644 "${UNIT_SRC}" "${UNIT_DEST}"
     install -Dm 0644 "${LAYER_SRC}" "${LAYER_DEST}"
+    rm -f "${OLD_LAYER_DEST}"
     install -Dm 0644 "${SYSUSERS_SRC}" "${SYSUSERS_DEST}"
     install -Dm 0644 "${POLKIT_SRC}" "${POLKIT_DEST}"
 
@@ -142,7 +145,7 @@ case "${cmd}" in
       systemctl disable --now "moonshine@${target_user}.service" 2>/dev/null || true
       loginctl disable-linger "${target_user}" 2>/dev/null || true
     fi
-    rm -f "${RULES_DEST}" "${MODULES_DEST}" "${UNIT_DEST}" "${LAYER_DEST}" "${SYSUSERS_DEST}" "${POLKIT_DEST}"
+    rm -f "${RULES_DEST}" "${MODULES_DEST}" "${UNIT_DEST}" "${LAYER_DEST}" "${OLD_LAYER_DEST}" "${SYSUSERS_DEST}" "${POLKIT_DEST}"
     if selinux_enabled && command -v semanage >/dev/null
     then
       semanage fcontext -d "${SELINUX_BIN_FCONTEXT}" 2>/dev/null || true
